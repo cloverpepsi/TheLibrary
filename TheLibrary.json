@@ -1,0 +1,13 @@
+{
+    "id": "TheLibrary",
+    "name": "The Library",
+    "author": ["cassiepepsi"],
+    "description": "Adds Jokers themed around aspects of the miniTWOW community. (discord.gg/TqVURAD)",
+    "prefix": "twow",
+    "main_file": "TheLibrary.lua",
+    "badge_colour": "166125",
+    "dependencies": [
+        "Steamodded (>=1.0.0~ALPHA-1225a)"
+    ],
+    "version": "1.0.0"
+}
