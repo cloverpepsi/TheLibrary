@@ -974,7 +974,7 @@ SMODS.Joker{
             G.hand:change_size(card.ability.extra.h_size)
             card.ability.extra.is_active = true
         end
-        if context.end_of_round and context.main_eval then
+        if context.end_of_round and context.main_eval and card.ability.extra.is_active then
             G.hand:change_size(-card.ability.extra.h_size)
             card.ability.extra.is_active = false
         end
