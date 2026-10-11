@@ -6,6 +6,6 @@
     "prefix": "twow",
     "main_file": "TheLibrary.lua",
     "badge_colour": "166125",
-    "dependencies": [],
-    "version": "3.0.3"
+    "dependencies": ["Steamodded (>=26.829.0)"],
+    "version": "3.1.0"
 }

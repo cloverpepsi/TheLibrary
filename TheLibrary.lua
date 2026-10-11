@@ -1,46 +1,56 @@
---[[
-------------------------------Basic Table of Contents------------------------------
-
---]]
-
--- v3.0.0 changelog
+-- 
+-- v3.1.0
 -- ADDITIONS
---   Bookmarks, Index Cards, and Catalog Packs
---     Bookmarks, which can be applied with Index Cards, which are
---     found in Catalog Packs, apply a buff to your Jokers that doesn't
---     directly add score (similar to Seals on playing cards).
---
---   Vouchers
---     Added Dog-Eared and Marked Up voucher pair
---
---   Bookworm Deck
---     The Bookworm Deck allows Jokers in the shop to be created with Bookmarks. 
--- 
 --   Jokers
---     Added Glicko Mode, Punslop, DRP, Gridlock, and Alumnus
+--     Added Mysterious Alt Figure, CASTORCORE, Just A Toad, and canicao
+--   Other
+--     Added Index Tag (Free Jumbo Catalog Pack)
 --
 -- CHANGES
---   carykh and AnArtichoke are no longer copy-compatible
---   Catie, Trojan, Zixi, Cause Key, and [TRACT B] all have new abilities
---   Hovering over Check Humany 40 times in the collection no longer crashes the game
---   Jokers are no longer automatically discovered
--- 
--- v3.0.1 changelog
--- CHANGES
---   Alumnus no longer gives an Index Card every time secret hand is played
---   Glicko Mode checks the suit of the card before triggering
---   Dog-Eared is no longer non-functional on Bookworm Deck
---   Fixed incomplete Collection bug
---
--- v3.0.2 changelog
--- CHANGES
---   New ability for Glicko Mode
+--   Zettex gives $6 per trigger instead of $4
+--   Snivy gives +5 hand size instead of +2
+--   MayUnderFlowers now also gives +5 Mult when Wild card scored
+--   iTeoti now gives +1 Mult per Diamond in deck
+--   Random's odds increased to 1 in 8
+--   Ironic now acts on both Small and Big Blind
+--   Sable renamed to Whole and gives X2 mult 
+--   Speediness Potion can now be purchased without empty joker slots
+--   DRP is now $8, AnArtichoke_ is now $6
+--   cassiepepsi and LeiZ can now always appear
+--   Blue bookmark can't be added at random if joker is eternal
+--   Green bookmark applies to all joker abilities.
+--   Minor texture changes
+
 
 to_big = to_big or function(x) return x end
 
 loc_colour()
 G.ARGS.LOC_COLOURS.twow_main = HEX('166125')
 G.ARGS.LOC_COLOURS.twow_index = HEX('666BC1')
+
+Library = {}
+
+Library.is_card = function(card, key)
+
+    if (card.config.center.key == "j_twow_mysterious_alt_figure" and card.ability.stolen == key) then return true end
+    return card.config.center.key == key
+
+end
+
+Library.find_card = function(key, count_debuffed)
+    local results = {}
+    if not G.jokers or not G.jokers.cards then return {} end
+    for _, area in ipairs(SMODS.get_card_areas('jokers')) do
+        if area.cards then
+            for _, v in pairs(area.cards) do
+                if v and type(v) == 'table' and (count_debuffed or not v.debuff) then
+                    if Library.is_card(v, key) then table.insert(results, v) end
+                end
+            end
+        end
+    end
+    return results
+end
 
 --Creates an atlas for cards to use
 SMODS.Atlas {
@@ -62,6 +72,13 @@ SMODS.Atlas {
 	path = "Boosters.png",
     px = 71,
     py = 95
+}
+
+SMODS.Atlas {
+    key = "twow_tags",
+    path = "Tags.png",
+    px = 34,
+    py = 34
 }
 
 SMODS.Atlas {
@@ -94,7 +111,7 @@ SMODS.Joker {
             "{C:attention}2{}, {C:attention}4{}, {C:attention}6{}, {C:attention}Jack{}, or {C:attention}King{}"
         },
     },
-        config = { extra = { odds_top = 1, odds_bottom = 6, dollars = 4 } },
+        config = { extra = { odds_top = 1, odds_bottom = 6, dollars = 6 } },
     loc_vars = function(self, info_queue, card)
         local numerator, denominator = SMODS.get_probability_vars(card, card.ability.extra.odds_top, card.ability.extra.odds_bottom, 'twow_zettex')
         if numerator == 1 then
@@ -269,7 +286,7 @@ SMODS.Joker {
             }
         end
 
-        if context.retrigger_joker_check and not context.retrigger_joker and context.other_card.config and context.other_card.config.center.key == 'j_twow_ilucuthen' then
+        if context.retrigger_joker_check and not context.retrigger_joker and context.other_card.config and Library.is_card(context.other_card, "j_twow_ilucuthen") then
             return {repetitions = 1}
         end
     end,
@@ -373,29 +390,36 @@ SMODS.Joker {
     loc_txt = {
         name="iTeoti",
         text={
-            "This Joker gains {C:mult}+#2#{} Mult",
-            "if a card becomes", 
-            "a {C:diamonds}Diamond{} card", 
-            "{C:inactive}(Currently {C:red}+#1#{C:inactive} Mult)",
+            "This Joker gives {C:mult}+#1#{} Mult",
+            "per {C:diamonds}Diamond{} in deck", 
+            "{C:inactive}(Currently {C:red}+#2#{C:inactive} Mult)",
         },
     },
-    config = { extra = { mult = 0, mult_mod = 3 } },
+    config = { extra = { mult = 1 } },
     loc_vars = function(self, info_queue, card)
-        return { vars = { card.ability.extra.mult, card.ability.extra.mult_mod } }
+
+        local card_tally = 0
+        if G.playing_cards then
+            for _, playing_card in ipairs(G.playing_cards) do
+                if playing_card:is_suit("Diamonds") then card_tally = card_tally + 1 end
+            end
+        end
+
+        return { vars = { card.ability.extra.mult, card.ability.extra.mult * card_tally } }
     end,
 
     calculate = function(self, card, context)
-        if context.change_suit and context.new_suit == "Diamonds" and not context.blueprint then
-            card.ability.extra.mult = card.ability.extra.mult + card.ability.extra.mult_mod
-            return {
-                message = localize { type = 'variable', key = 'a_mult', vars = { card.ability.extra.mult } },
-            }
-        end
-
         if context.joker_main then
-            return {mult = card.ability.extra.mult}            
+            local card_tally = 0
+            if G.playing_cards then
+                for _, playing_card in ipairs(G.playing_cards) do
+                    if playing_card:is_suit("Diamonds") then card_tally = card_tally + 1 end
+                end
+            end
+            return { mult = card_tally*card.ability.extra.mult }
         end
     end,
+
 }
 
 
@@ -434,7 +458,7 @@ SMODS.Joker {
     blueprint_compat = false, eternal_compat = false,
     unlocked = true, 
     rarity = 1,
-    cost = 4,
+    cost = 6,
     atlas = 'twow_jokers',
     pos = { x = 0, y = 2 },
 
@@ -690,16 +714,16 @@ SMODS.Joker {
     loc_vars = function(self, info_queue, card)
         info_queue[#info_queue + 1] = G.P_CENTERS.m_lucky
         return { vars = { card.ability.extra.xmult } }
-    end,
+    end
 
-    in_pool = function(self, args)
-        for _, playing_card in ipairs(G.playing_cards or {}) do
-            if SMODS.has_enhancement(playing_card, 'm_lucky') then
-                return true
-            end
-        end
-        return false
-    end,
+    --in_pool = function(self, args)
+    --    for _, playing_card in ipairs(G.playing_cards or {}) do
+    --        if SMODS.has_enhancement(playing_card, 'm_lucky') then
+    --            return true
+    --        end
+    --    end
+    --    return false
+    --end,
 }
 
 SMODS.Enhancement:take_ownership('lucky', {
@@ -720,8 +744,8 @@ SMODS.Enhancement:take_ownership('lucky', {
             local ret = {}
             if SMODS.pseudorandom_probability(card, 'lucky_mult', 1, card.ability.extra.mult_odds) then
                 card.lucky_trigger = true
-                local leiz_joker = SMODS.find_card('j_twow_leiz')
-                if next(SMODS.find_card('j_twow_leiz')) then
+                local leiz_joker = Library.find_card('j_twow_leiz')
+                if next(Library.find_card('j_twow_leiz')) then
                     ret.xmult = leiz_joker[1].ability.extra.xmult
                 else 
                     ret.mult = card.ability.extra.mult
@@ -923,7 +947,7 @@ SMODS.Joker{
         },
     },
 
-    config = { extra = { h_size = 2, is_active = false } },
+    config = { extra = { h_size = 5, is_active = false } },
 
     loc_vars = function(self, info_queue, card)
         return { vars = { card.ability.extra.h_size } }
@@ -1268,14 +1292,14 @@ SMODS.Joker {
             end
         end
     end,
-    in_pool = function(self, args)
-        for _, playing_card in ipairs(G.playing_cards or {}) do
-            if SMODS.has_enhancement(playing_card, 'm_glass') then
-                return true
-            end
-        end
-        return false
-    end,
+    --in_pool = function(self, args)
+    --    for _, playing_card in ipairs(G.playing_cards or {}) do
+    --        if SMODS.has_enhancement(playing_card, 'm_glass') then
+    --            return true
+    --        end
+    --    end
+    --    return false
+    --end,
 }
 
 
@@ -1323,7 +1347,7 @@ SMODS.Joker{
 }
 
 
--- WHOLE
+-- SABLE
 SMODS.Joker {
     key = "whole",
     blueprint_compat = true,
@@ -1334,14 +1358,14 @@ SMODS.Joker {
     pos = { x = 2, y = 2 },
 
     loc_txt = {
-        name="Whole",
+        name="Sable",
         text={
 			"Played {C:attention}Stone Cards{} give",
 			"{X:mult,C:white} X#1# {} Mult when scored"
         },
     },
 
-    config = { extra = { xmult = 1.5 } },
+    config = { extra = { xmult = 2 } },
 
 	loc_vars = function(self, info_queue, card)
 		info_queue[#info_queue+1] = G.P_CENTERS.m_stone 
@@ -1372,9 +1396,9 @@ SMODS.Joker {
     loc_txt = {
         name="Ironic",
         text={
-            "This Joker gives the",
-            "{C:attention}Small Blind{} skip tag",
-            "when Blind is selected"
+            "This Joker gives a",
+            "Blind's {C:attention}skip tag{}",
+            "when selected"
         },
     },
 
@@ -1388,6 +1412,18 @@ SMODS.Joker {
             G.E_MANAGER:add_event(Event({
                 func = (function()
                     local tag_to_copy = Tag(G.GAME.round_resets.blind_tags.Small)
+                    add_tag(tag_to_copy)
+                    play_sound('generic1', 0.9 + math.random()*0.1, 0.8)
+                    play_sound('holo1', 1.2 + math.random()*0.1, 0.4)
+                    return true
+                end)
+            }))
+        end
+
+        if context.setting_blind and context.blind.key == 'bl_big' then
+            G.E_MANAGER:add_event(Event({
+                func = (function()
+                    local tag_to_copy = Tag(G.GAME.round_resets.blind_tags.Big)
                     add_tag(tag_to_copy)
                     play_sound('generic1', 0.9 + math.random()*0.1, 0.8)
                     play_sound('holo1', 1.2 + math.random()*0.1, 0.4)
@@ -1606,7 +1642,7 @@ SMODS.Joker {
             "{C:inactive}(Currently {}{C:mult}+#4#{}{C:inactive} Mult){}",
         },
     },
-    config = { extra = { odds_top = 1, odds_bottom = 10, mult = 0, mult_mod = 1 } },
+    config = { extra = { odds_top = 1, odds_bottom = 8, mult = 0, mult_mod = 1 } },
     loc_vars = function(self, info_queue, card)
         local numerator, denominator = SMODS.get_probability_vars(card, card.ability.extra.odds_top, card.ability.extra.odds_bottom, 'twow_randomg')
         return { vars = { numerator, denominator, card.ability.extra.mult_mod, card.ability.extra.mult } }
@@ -1795,16 +1831,27 @@ SMODS.Joker {
     loc_txt = {
         name="MayUnderFlowers",
         text={
-            "{C:attention}Wild Cards{} can't",
-            "be debuffed",
+            "{C:attention}Wild Cards{} give",
+            "{C:mult}+#1#{} Mult when scored",
+            "and can't be debuffed"
         },
     },
 
+    config = { extra = { mult = 5 } },
+
+    loc_vars = function(self, info_queue, card) return { vars = { card.ability.extra.mult } } end,
+
     calculate = function(self, card, context)
-        if context.debuff_card and SMODS.has_enhancement(context.debuff_card, 'm_wild') then return { prevent_debuff = true } end
+        if context.debuff_card and SMODS.has_enhancement(context.debuff_card, 'm_wild') then
+            return { prevent_debuff = true }
+        end
         if context.setting_ability and SMODS.has_enhancement(context.other_card, 'm_wild') then
             context.other_card:set_debuff(false)
             return
+        end
+
+        if context.individual and context.cardarea == G.play then
+            if SMODS.has_enhancement(context.other_card, 'm_wild') then return { mult = card.ability.extra.mult } end
         end
     end,
 }
@@ -2205,8 +2252,8 @@ SMODS.Joker {
 
     remove_from_deck = function(self, card, from_debuff)
         has_other_joker = false
-        for _, joker in ipairs(SMODS.find_card("j_twow_grace_period")) do if joker ~= card then has_other_joker = true end end 
-        if not next(SMODS.find_card("j_twow_grace_period")) then GLOBAL_twow_grace_period = false end
+        for _, joker in ipairs(Library.find_card("j_twow_grace_period")) do if joker ~= card then has_other_joker = true end end 
+        if not next(Library.find_card("j_twow_grace_period")) then GLOBAL_twow_grace_period = false end
     end,
 }
 
@@ -2303,6 +2350,15 @@ SMODS.Joker {
         G.jokers:change_size(-1)
     end,
 }
+
+local gfcfbs = G.FUNCS.check_for_buy_space
+G.FUNCS.check_for_buy_space = function(card)
+    if card.config.center.key == "j_twow_speediness_potion" then
+        return G.jokers.config.card_limit <= G.jokers.config.card_count
+    end
+    return gfcfbs(card)
+end
+
 
 -- TRACT B
 SMODS.Joker {
@@ -2478,7 +2534,7 @@ SMODS.Joker {
     blueprint_compat = false,
     unlocked = true, 
     rarity = 2,
-    cost = 6,
+    cost = 8,
     atlas = 'twow_jokers',
     pos = { x = 7, y = 6 },
 
@@ -2533,6 +2589,17 @@ SMODS.Joker {
     end
 }
 
+
+local function reset_twow_gridlock()
+    G.GAME.current_round.twow_gridlock = G.GAME.current_round.twow_gridlock or { suit = 'Spades' }
+    local valid_suits = {}
+    for k, v in ipairs({ 'Spades', 'Hearts', 'Clubs', 'Diamonds' }) do
+        if v ~= G.GAME.current_round.twow_gridlock.suit then valid_suits[#valid_suits + 1] = v end
+    end
+    local gridlock = pseudorandom_element(valid_suits, 'twow_gridlock_' .. G.GAME.round_resets.ante)
+    G.GAME.current_round.twow_gridlock.suit = gridlock
+end
+
 -- ALUMNUS
 SMODS.Joker {
     key = "alumnus",
@@ -2584,15 +2651,220 @@ SMODS.Joker {
     end
 }
 
-local function reset_twow_gridlock()
-    G.GAME.current_round.twow_gridlock = G.GAME.current_round.twow_gridlock or { suit = 'Spades' }
-    local valid_suits = {}
-    for k, v in ipairs({ 'Spades', 'Hearts', 'Clubs', 'Diamonds' }) do
-        if v ~= G.GAME.current_round.twow_gridlock.suit then valid_suits[#valid_suits + 1] = v end
+-- MYSTERIOUS ALT FIGURE
+SMODS.Joker {
+    key = "mysterious_alt_figure",
+    blueprint_compat = false,
+    unlocked = true, 
+    rarity = 2,
+    cost = 6,
+    atlas = 'twow_jokers',
+    pos = { x = 6, y = 5 },
+
+    loc_txt = {
+        name="Mysterious Alt Figure",
+        text={
+            "Has the effect of a",
+            "random {C:attention}Library Joker{}"
+            },
+    },
+
+    config = { extra = { }, stolen = nil },
+
+    calculate = function(self, card, context)
+
+        if card.ability ~= nil and card.ability.stolen == nil then
+
+            card.ability.stolen = true
+
+            local modjokers = {}
+            for k, v in pairs(G.P_CENTER_POOLS.Joker) do
+                if v.mod and v.mod.id == "TheLibrary" and v.rarity ~= 4 then
+                    table.insert(modjokers, v)
+                end
+            end
+            local joker = pseudorandom_element(modjokers, pseudoseed("twow_maf"))
+            card.ability.stolen = joker.key
+            card.ability.extra = joker.config.extra
+            card.ability.immutable = joker.config.immutable
+        end
+
+        if card.ability.stolen ~= nil then
+            local success, result = pcall(function()
+                return G.P_CENTERS[card.ability.stolen].calculate(self, card, context)
+            end)
+            if success then return result end
+        end
+    end,
+
+    add_to_deck = function(self, card, from_debuff)
+        if card.ability.stolen ~= nil then
+            local success, result = pcall(function()
+                return G.P_CENTERS[card.ability.stolen].add_to_deck(self, card, from_debuff)
+            end)
+            if success then return result end
+        end
+    end,
+    remove_from_deck = function(self, card, from_debuff)
+        if card.ability.stolen ~= nil then
+            local success, result = pcall(function()
+                return G.P_CENTERS[card.ability.stolen].remove_from_deck(self, card, from_debuff)
+            end)
+            if success then return result end
+        end
+    end,
+
+}
+
+
+-- CASTORCORE
+SMODS.Joker {
+    key = "castorcore",
+    blueprint_compat = false,
+    unlocked = true, 
+    rarity = 2,
+    cost = 8,
+    atlas = 'twow_jokers',
+    pos = { x = 7, y = 5 },
+
+    loc_txt = {
+        name="CASTORCORE",
+        text={
+            "All {C:tarot}Arcana Packs{} in",
+            "the shop are {C:attention}free",
+            },
+    },
+
+    config = { extra = { }, stolen = nil },
+
+    add_to_deck = function(self, card, from_debuff)
+        G.E_MANAGER:add_event(Event({
+            func = function()
+                for _, other_card in pairs(G.I.CARD) do
+                    if other_card.set_cost then other_card:set_cost() end
+                end
+                return true
+            end
+        }))
+    end,
+    remove_from_deck = function(self, card, from_debuff)
+        G.E_MANAGER:add_event(Event({
+            func = function()
+                for _, other_card in pairs(G.I.CARD) do
+                    if other_card.set_cost then other_card:set_cost() end
+                end
+                return true
+            end
+        }))
+    end,
+}
+
+local card_set_cost_value_ref = Card.set_cost_value
+function Card:set_cost_value(...)
+    local ret = card_set_cost_value_ref(self, ...)
+    if next(Library.find_card("j_twow_castorcore")) then
+        if (self.ability.set == 'Booster' and self.config.center.kind == 'Arcana') then self.cost = 0 end
     end
-    local gridlock = pseudorandom_element(valid_suits, 'twow_gridlock_' .. G.GAME.round_resets.ante)
-    G.GAME.current_round.twow_gridlock.suit = gridlock
+    return ret
 end
+
+-- OLIVE
+SMODS.Joker {
+    key = "justatoad",
+    blueprint_compat = true,
+    eternal_compat = false,
+    unlocked = true, 
+    rarity = 3,
+    cost = 10,
+    atlas = 'twow_jokers',
+    pos = { x = 8, y = 5 },
+
+    loc_txt = {
+        name="Just A Toad",
+        text={
+            "Sell this card to",
+            "apply a random {C:attention}Bookmark{}",
+            "to all your {C:attention}Jokers{}"
+        },
+    },
+
+    config = { extra = { } },
+
+    loc_vars = function(self, info_queue, card)
+        return { vars = { card.ability.extra.amount_1, card.ability.extra.amount_2 } }
+    end,
+
+    calculate = function(self, card, context)
+        if context.selling_self then
+
+            for i = 1, #G.jokers.cards do
+                if not has_bookmark(G.jokers.cards[i]) and card ~= G.jokers.cards[i] then
+                    add_bookmark(G.jokers.cards[i], 'any')
+                end
+            end
+
+            return {
+                message = "Bookmarked!",
+                colour = G.ARGS.LOC_COLOURS.twow_index,
+            }
+
+        end
+    end,
+}
+
+-- canicao
+SMODS.Joker {
+    key = "canicao",
+    blueprint_compat = true,
+    eternal_compat = false,
+    unlocked = true, 
+    rarity = 2,
+    cost = 8,
+    atlas = 'twow_jokers',
+    pos = { x = 9, y = 5 },
+
+    loc_txt = {
+        name="canicao",
+        text={
+            "{X:mult,C:white} X#1# {} Mult",
+            "Shuffles {C:attention}Jokers{}",
+            "when hand played"
+        },
+    },
+
+    config = { extra = { xmult = 3 } },
+
+    loc_vars = function(self, info_queue, card)
+        return { vars = { card.ability.extra.xmult } }
+    end,
+
+    calculate = function(self, card, context)
+        if context.press_play then
+            G.jokers:unhighlight_all()
+            if #G.jokers.cards > 1 then
+                G.E_MANAGER:add_event(Event({
+                    trigger = 'after',
+                    delay = 0.2,
+                    func = function()
+                        G.E_MANAGER:add_event(Event({
+                            func = function()
+                                G.jokers:shuffle('twow_canicao')
+                                play_sound('cardSlide1', 0.85)
+                                return true
+                            end,
+                        }))
+                        delay(0.5)
+                        return true
+                    end
+                }))
+            end
+        end
+
+        if context.joker_main then
+            return { xmult = card.ability.extra.xmult }
+        end
+    end,
+}
 
 -- CARYKH
 SMODS.Joker {
@@ -3112,7 +3384,10 @@ SMODS.Sticker {
 
     apply = function(self, card, val)
         if val then
-            local bookmark_to_add = pseudorandom_element({'yellow','red','green','purple','blue','orange'},'twow_bookmarks')
+            local bookmark_options = {'yellow','red','green','purple','blue','orange'}
+            if card.ability.eternal then table.remove(bookmark_options, 5) end
+
+            local bookmark_to_add = pseudorandom_element(bookmark_options,'twow_bookmarks')
             card:add_sticker("twow_bookmark_"..bookmark_to_add, true)
             card:remove_sticker(self.key)
         end
@@ -3211,13 +3486,13 @@ SMODS.Sticker {
         name="Green Bookmark",
         label = "Green Bookmark",
         text={
-            "Doubles this {C:attention}Joker's",
+            "Doubles all {C:attention}Joker",
             "{C:green,E:1,S:1.1}probabilities",
         },
     },
 
 	calculate = function(self, card, context)
-		if context.mod_probability and context.trigger_obj == card then
+		if context.mod_probability and context.trigger_obj.ability.set == "Joker" and context.identifier ~= "twow_verbigerative" then
 			return {
 				numerator = context.numerator * 2,
 			}
@@ -3350,6 +3625,47 @@ SMODS.Sticker {
     should_apply = global_bookmark_should_apply,
     apply = global_bookmark_apply,
 	draw = global_bookmark_draw,
+}
+
+
+-- Index Tag
+SMODS.Tag {
+    key = "indextag",
+    min_ante = 2,
+    atlas = 'twow_tags',
+    pos = { x = 0, y = 0 },
+    loc_txt = {
+        name="Index Tag",
+        text={
+            "Gives a free",
+            "{C:twow_index}Catalog Pack",
+        },
+    },
+
+    loc_vars = function(self, info_queue, tag)
+        info_queue[#info_queue + 1] = G.P_CENTERS.p_twow_index_jumbo_1
+    end,
+    apply = function(self, tag, context)
+        if context.type == 'new_blind_choice' then
+            local lock = tag.ID
+            G.CONTROLLER.locks[lock] = true
+            tag:yep('+', G.C.SECONDARY_SET.Spectral, function()
+                local booster = SMODS.create_card { key = 'p_twow_index_jumbo_1', area = G.play }
+                booster.T.x = G.play.T.x + G.play.T.w / 2 - G.CARD_W * 1.27 / 2
+                booster.T.y = G.play.T.y + G.play.T.h / 2 - G.CARD_H * 1.27 / 2
+                booster.T.w = G.CARD_W * 1.27
+                booster.T.h = G.CARD_H * 1.27
+                booster.cost = 0
+                booster.from_tag = true
+                G.FUNCS.use_card({ config = { ref_table = booster } })
+                booster:start_materialize()
+                G.CONTROLLER.locks[lock] = nil
+                return true
+            end)
+            tag.triggered = true
+            return true
+        end
+    end
 }
 
 --[[ Testing Tag

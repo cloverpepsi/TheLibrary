@@ -32,8 +32,8 @@ pattern = "self.SPEEDFACTOR = (G.STAGE == G.STAGES.RUN and not G.SETTINGS.paused
 position = "at"
 payload = '''
 self.SPEEDFACTOR = (G.STAGE == G.STAGES.RUN and not G.SETTINGS.paused and not G.screenwipe) and self.SETTINGS.GAMESPEED or 1
-if next(SMODS.find_card('j_twow_speediness_potion')) then
-	for _, joker in ipairs(SMODS.find_card('j_twow_speediness_potion')) do
+if Library and next(Library.find_card('j_twow_speediness_potion')) then
+	for _, joker in ipairs(Library.find_card('j_twow_speediness_potion')) do
 		self.SPEEDFACTOR = self.SPEEDFACTOR * (joker.ability.extra.new_game_speed or 1)
 	end
 end
