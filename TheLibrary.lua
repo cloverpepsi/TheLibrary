@@ -52,6 +52,19 @@ Library.find_card = function(key, count_debuffed)
     return results
 end
 
+Library.is_suit_gridlock = function(card, suit, bypass_debuff, flush_calc)
+    if card.ability.effect == 'Stone Card' then
+        return false
+    end
+    if card.ability.name == "Wild Card" then
+        return true
+    end
+    if next(SMODS.find_card('j_smeared')) and (card.base.suit == 'Hearts' or card.base.suit == 'Diamonds') == (suit == 'Hearts' or suit == 'Diamonds') then
+        return true
+    end
+    return card.base.suit == suit
+end
+
 --Creates an atlas for cards to use
 SMODS.Atlas {
 	key = "twow_jokers",
@@ -1821,7 +1834,7 @@ SMODS.Joker {
 -- MAYUNDERFLOWERS
 SMODS.Joker {
     key = "mayunderflowers",
-    blueprint_compat = false,
+    blueprint_compat = true,
     unlocked = true, 
     rarity = 1,
     cost = 4,
@@ -2354,7 +2367,7 @@ SMODS.Joker {
 local gfcfbs = G.FUNCS.check_for_buy_space
 G.FUNCS.check_for_buy_space = function(card)
     if card.config.center.key == "j_twow_speediness_potion" then
-        return G.jokers.config.card_limit <= G.jokers.config.card_count
+        return G.jokers.config.card_limit >= G.jokers.config.card_count
     end
     return gfcfbs(card)
 end
@@ -2582,7 +2595,7 @@ SMODS.Joker {
     end,
     calculate = function(self, card, context)
         if context.check_enhancement then
-            if context.other_card:is_suit(G.GAME.current_round.twow_gridlock.suit) then
+            if context.other_card.base and Library.is_suit_gridlock(context.other_card, G.GAME.current_round.twow_gridlock.suit) then
                 return {m_wild = true} 
             end
         end
@@ -3492,7 +3505,7 @@ SMODS.Sticker {
     },
 
 	calculate = function(self, card, context)
-		if context.mod_probability and context.trigger_obj.ability.set == "Joker" and context.identifier ~= "twow_verbigerative" then
+		if context.mod_probability and context.trigger_obj and context.trigger_obj.ability and context.trigger_obj.ability.set == "Joker" and context.identifier ~= "twow_verbigerative" then
 			return {
 				numerator = context.numerator * 2,
 			}
