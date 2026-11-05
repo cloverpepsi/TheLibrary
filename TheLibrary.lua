@@ -1,25 +1,18 @@
--- 
--- v3.1.0
--- ADDITIONS
---   Jokers
---     Added Mysterious Alt Figure, CASTORCORE, Just A Toad, and canicao
---   Other
---     Added Index Tag (Free Jumbo Catalog Pack)
+-- v3.1.1 & v3.1.2
+-- CHANGES & FIXES
+--   MayUnderFlowers is now Blueprint-compatible
+--   Speediness Potion purchasing functions properly now
+--   Gridlock and Green Bookmark no longer crash the game
 --
--- CHANGES
---   Zettex gives $6 per trigger instead of $4
---   Snivy gives +5 hand size instead of +2
---   MayUnderFlowers now also gives +5 Mult when Wild card scored
---   iTeoti now gives +1 Mult per Diamond in deck
---   Random's odds increased to 1 in 8
---   Ironic now acts on both Small and Big Blind
---   Sable renamed to Whole and gives X2 mult 
---   Speediness Potion can now be purchased without empty joker slots
---   DRP is now $8, AnArtichoke_ is now $6
---   cassiepepsi and LeiZ can now always appear
---   Blue bookmark can't be added at random if joker is eternal
---   Green bookmark applies to all joker abilities.
---   Minor texture changes
+--   Trojan has a new ability and is now Blueprint-compatible
+--   Alumnus has been buffed to "this round"
+--   Dog-Eared makes all Jokers in packs have Bookmarks
+--   Marked Up makes all shops contain a Catalog Pack
+--   Purplegaze no longer requires its four cards to be different
+--   cassiepepsi gives Negative copies of Justice now
+--   Grace Period is now Common
+--   Mysterious Alt Figure now works with Jokers that give money on cashout
+--   Ilucuthen is moderately more annoying to hover over
 
 
 to_big = to_big or function(x) return x end
@@ -284,7 +277,7 @@ SMODS.Joker {
     loc_vars = function(self, info_queue, card)
     
         if not card.fake_card then 
-            for i = 1, 10, 1 do
+            for i = 1, 32, 1 do
                 info_queue[#info_queue + 1] = G.P_CENTERS.j_twow_ilucuthen
             end
         end
@@ -789,38 +782,26 @@ SMODS.Joker {
     loc_txt = {
         name="Purplegaze",
         text={
-            "Retrigger all played cards",
-            "if poker hand contains a",
-            "{C:diamonds}Diamond{} card, {C:clubs}Club{} card,",
-            "{C:hearts}Heart{} card, and {C:spades}Spade{} card",
+            "Retrigger all played",
+            "cards if poker hand",
+            "contains all four {C:attention}suits{}",
         },
     },
 
     calculate = function(self, card, context)
         if context.before then
             local suits = {
-                ['Hearts'] = 0,
-                ['Diamonds'] = 0,
-                ['Spades'] = 0,
-                ['Clubs'] = 0
+                ['Hearts'] = false,
+                ['Diamonds'] = false,
+                ['Spades'] = false,
+                ['Clubs'] = false
             }
             for i = 1, #context.scoring_hand do
-                if not SMODS.has_any_suit(context.scoring_hand[i]) then
-                    for suit_name, _ in pairs(suits) do
-                        if context.scoring_hand[i]:is_suit(suit_name) and suits[suit_name] == 0 then suits[suit_name] = suits[suit_name] + 1 break
-                        end
-                    end
+                for suit_name, _ in pairs(suits) do
+                    if context.scoring_hand[i]:is_suit(suit_name) then suits[suit_name] = true end
                 end
             end
-            for i = 1, #context.scoring_hand do
-                if SMODS.has_any_suit(context.scoring_hand[i]) then
-                    for suit_name, _ in pairs(suits) do
-                        if context.scoring_hand[i]:is_suit(suit_name) and suits[suit_name] == 0 then suits[suit_name] = suits[suit_name] + 1 break
-                        end
-                    end
-                end
-            end
-            card.ability.extra.do_trigger = suits["Hearts"] > 0 and suits["Diamonds"] > 0 and suits["Spades"] > 0 and suits["Clubs"] > 0
+            card.ability.extra.do_trigger = suits["Hearts"] and suits["Diamonds"] and suits["Spades"] and suits["Clubs"]
         end
 
         if context.cardarea == G.play and context.repetition and card.ability.extra.do_trigger then
@@ -1267,8 +1248,8 @@ SMODS.Joker {
 	loc_txt = {
 		name = 'cassiepepsi',
 		text = {
-			"Creates a copy of",
-            "{C:attention}Justice{} when",
+			"Creates a {C:dark_edition}Negative{}",
+            "copy of {C:attention}Justice{} when",
             "{C:attention}Glass Card{} breaks"
 		}
 	},
@@ -1276,7 +1257,7 @@ SMODS.Joker {
     blueprint_compat = true,
     unlocked = true, 
 	loc_vars = function(self, info_queue, card)
-		--info_queue[#info_queue + 1] = G.P_CENTERS.e_negative
+		info_queue[#info_queue + 1] = G.P_CENTERS.e_negative
         info_queue[#info_queue + 1] = G.P_CENTERS.c_justice
 	end,
 
@@ -1290,12 +1271,12 @@ SMODS.Joker {
             for _, removed_card in ipairs(context.removed) do
                 if removed_card.shattered then glass_cards = glass_cards + 1 end
             end
-            glass_cards = math.min(glass_cards, G.consumeables.config.card_limit - #G.consumeables.cards)
+            --glass_cards = math.min(glass_cards, G.consumeables.config.card_limit - #G.consumeables.cards)
             if glass_cards > 0 then
                 G.E_MANAGER:add_event(Event({
                     func = function()
                         while glass_cards > 0 do
-                            SMODS.add_card({ key = 'c_justice' })
+                            SMODS.add_card({ key = 'c_justice', edition = 'e_negative' })
                             glass_cards = glass_cards - 1
                             end
                         return true
@@ -1319,7 +1300,7 @@ SMODS.Joker {
 -- TROJAN
 SMODS.Joker{
     key = "trojan",
-    blueprint_compat = false,
+    blueprint_compat = true,
     unlocked = true, 
     rarity = 3,
     cost = 8,
@@ -1330,14 +1311,14 @@ SMODS.Joker{
     loc_txt = {
         name="Trojan",
         text={
-            "Destroy all scoring cards",
-            "in {C:attention}first{} hand, {C:white,X:mult}X#2#{} Mult",
+            "Destroys a scoring card when",
+            "hand played, gains {C:white,X:mult}X#2#{} Mult",
             "per card destroyed",
             "{C:inactive}(Currently {X:mult,C:white} X#1# {}{C:inactive} Mult)",
         },
     },
 
-    config = { extra = { xmult = 1, xmult_mod = 0.1 } },
+    config = { extra = { xmult = 1, xmult_mod = 0.15 }, immutable = { card_to_destroy = 0} },
 
     loc_vars = function(self, info_queue, card)
         return { vars = { card.ability.extra.xmult, card.ability.extra.xmult_mod } }
@@ -1345,8 +1326,12 @@ SMODS.Joker{
 
     calculate = function(self, card, context)
 
-        if context.destroy_card and context.cardarea == G.play and G.GAME.current_round.hands_played == 0 and not context.blueprint then
-            return { remove = true }
+        if context.before then
+            card.ability.immutable.card_to_destroy = pseudorandom_element(context.scoring_hand, "trojan_seleft")
+        end
+
+        if context.destroy_card and context.cardarea == G.play and not context.blueprint then
+            return { remove = context.destroying_card == card.ability.immutable.card_to_destroy }
         end
 
         if context.remove_playing_cards and not context.blueprint then
@@ -2242,8 +2227,8 @@ SMODS.Joker {
     key = "grace_period",
     blueprint_compat = false,
     unlocked = true, 
-    rarity = 2,
-    cost = 6,
+    rarity = 1,
+    cost = 5,
     atlas = 'twow_jokers',
     pos = { x = 1, y = 6 },
 
@@ -2349,28 +2334,12 @@ SMODS.Joker {
             },
     },
 
-    config = { extra = { new_game_speed = 4 } },
+    config = { extra = { new_game_speed = 4 }, extra_slots_used = -1 },
 
     loc_vars = function(self, info_queue, card)
         return {vars = { card.ability.extra.new_game_speed } }
     end,
-
-    add_to_deck = function(self, card, from_debuff)
-        G.jokers:change_size(1)
-    end,
-
-    remove_from_deck = function(self, card, from_debuff)
-        G.jokers:change_size(-1)
-    end,
 }
-
-local gfcfbs = G.FUNCS.check_for_buy_space
-G.FUNCS.check_for_buy_space = function(card)
-    if card.config.center.key == "j_twow_speediness_potion" then
-        return G.jokers.config.card_limit >= G.jokers.config.card_count
-    end
-    return gfcfbs(card)
-end
 
 
 -- TRACT B
@@ -2628,17 +2597,17 @@ SMODS.Joker {
         text={
             "Create an {C:twow_index}Index Card{} the",
             "first time {C:attention}secret hand",
-            "is played this Ante",
+            "is played this round",
             "{C:inactive}(Must have room)",
             },
     },
 
-    config = { extra = { played_this_ante = false } },
+    config = { extra = { played_this_round = false } },
 
     calculate = function(self, card, context)
         if context.before then
-            if (next(context.poker_hands["Five of a Kind"]) or next(context.poker_hands["Flush Five"]) or next(context.poker_hands["Flush House"])) and not card.ability.extra.played_this_ante then
-                card.ability.extra.played_this_ante = true
+            if (next(context.poker_hands["Five of a Kind"]) or next(context.poker_hands["Flush Five"]) or next(context.poker_hands["Flush House"])) and not card.ability.extra.played_this_round then
+                card.ability.extra.played_this_round = true
                 if #G.consumeables.cards + G.GAME.consumeable_buffer < G.consumeables.config.card_limit then
                     G.GAME.consumeable_buffer = G.GAME.consumeable_buffer + 1
                     G.E_MANAGER:add_event(Event({
@@ -2658,8 +2627,8 @@ SMODS.Joker {
                 end
             end
         end
-        if context.end_of_round and context.game_over == false and context.beat_boss and not context.repetition and not context.blueprint then
-            card.ability.extra.played_this_ante = false
+        if context.end_of_round and context.game_over == false and not context.repetition and not context.blueprint then
+            card.ability.extra.played_this_round = false
         end
     end
 }
@@ -2726,6 +2695,14 @@ SMODS.Joker {
             if success then return result end
         end
     end,
+    calc_dollar_bonus = function(self, card)
+        if card.ability.stolen ~= nil then
+            local success, result = pcall(function()
+                return G.P_CENTERS[card.ability.stolen].calc_dollar_bonus(self, card)
+            end)
+            if success then return result end
+        end
+    end
 
 }
 
@@ -3292,7 +3269,7 @@ SMODS.Voucher {
         name = 'Dog-Eared',
         text = {
             "{C:attention}Jokers{} in Booster Packs",
-            "can have {C:attention}Bookmarks{}",
+            "have {C:attention}Bookmarks{}",
         }
     },
 
@@ -3311,18 +3288,31 @@ SMODS.Voucher {
     loc_txt = {
         name = 'Marked Up',
         text = {
-            "{C:twow_index}Catalog Packs{} are {C:attention}2X",
-            "more likely to appear",
+            "All shops contain",
+            "a {C:twow_index}Catalog Pack{}",
         }
     },
 
+    calculate = function(self, card, context)
+        if context.starting_shop then
+            G.GAME.first_shop_pack = true
+        end
+    end,
+
     redeem = function(self, card)
-        G.P_CENTERS.p_twow_index_normal_1.weight = G.P_CENTERS.p_twow_index_normal_1.weight * 2
-        G.P_CENTERS.p_twow_index_normal_2.weight = G.P_CENTERS.p_twow_index_normal_2.weight * 2
-        G.P_CENTERS.p_twow_index_jumbo_1.weight = G.P_CENTERS.p_twow_index_jumbo_1.weight * 2
-        G.P_CENTERS.p_twow_index_mega_1.weight = G.P_CENTERS.p_twow_index_mega_1.weight * 2
+        G.GAME.modifiers.twow_always_have_catalog = true
+        G.GAME.first_shop_pack = true
     end
 }
+
+local old_get_pack = get_pack
+get_pack = function(_self, _key, _type)
+    if G.GAME.modifiers.twow_always_have_catalog and G.GAME.first_shop_pack then
+        _type = "twow_Index"
+        G.GAME.first_shop_pack = false
+    end
+    return old_get_pack(_key, _type)
+end
 
 -- BOOKMARKS
 
@@ -3390,7 +3380,7 @@ SMODS.Sticker {
         return card.ability.set == "Joker" and
             (
                 (G.GAME.modifiers.twow_enable_bookmarks_in_shop and pseudorandom('twow_apply_bookmark') < 0.1) or
-                ( area == G.pack_cards and G.GAME.modifiers.twow_enable_bookmarks_in_packs and pseudorandom('twow_apply_bookmark_pack') < 0.1 )
+                ( area == G.pack_cards and G.GAME.modifiers.twow_enable_bookmarks_in_packs )
                 or bypass_roll
             )
     end,
