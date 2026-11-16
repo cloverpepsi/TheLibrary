@@ -1,18 +1,12 @@
--- v3.1.1 & v3.1.2
--- CHANGES & FIXES
---   MayUnderFlowers is now Blueprint-compatible
---   Speediness Potion purchasing functions properly now
---   Gridlock and Green Bookmark no longer crash the game
+-- v3.2.0
+-- ADDITIONS & FIXES
+--   Added "Invisible Rules" challenge
+--   Added "Ten Cards Of Wisdom" challenge
+--   Added "Don't Check Humany" challenge
 --
---   Trojan has a new ability and is now Blueprint-compatible
---   Alumnus has been buffed to "this round"
---   Dog-Eared makes all Jokers in packs have Bookmarks
---   Marked Up makes all shops contain a Catalog Pack
---   Purplegaze no longer requires its four cards to be different
---   cassiepepsi gives Negative copies of Justice now
---   Grace Period is now Common
---   Mysterious Alt Figure now works with Jokers that give money on cashout
---   Ilucuthen is moderately more annoying to hover over
+--   Fixed Mysterious Alt Figure with various jokers
+--   Fixed SergeantSnivy staying active at the wrong time
+--   Koopa ability now matches the description text
 
 
 to_big = to_big or function(x) return x end
@@ -946,14 +940,13 @@ SMODS.Joker{
     loc_vars = function(self, info_queue, card)
         return { vars = { card.ability.extra.h_size } }
     end,
-
     
     calculate = function(self, card, context)
         if G.GAME.blind and not card.ability.extra.is_active and G.GAME.current_round.hands_left == 1 then
             G.hand:change_size(card.ability.extra.h_size)
             card.ability.extra.is_active = true
         end
-        if context.end_of_round and context.main_eval and card.ability.extra.is_active then
+        if G.GAME.current_round.hands_left ~= 1 and card.ability.extra.is_active then
             G.hand:change_size(-card.ability.extra.h_size)
             card.ability.extra.is_active = false
         end
@@ -1037,34 +1030,31 @@ SMODS.Joker {
     },
     config = { extra = { mult = 6 } },
     loc_vars = function(self, info_queue, card)
-        local card_tally = {nil, 0, nil, 0, nil, nil, 0}
-        local total_mult = 0
-        local deck_values = G.GAME.current_round.twow_koopa_values or {nil, 0, nil, 0, nil, nil, 0}
-        if G.playing_cards then
-            for _, playing_card in ipairs(G.playing_cards) do
-                if card_tally[playing_card:get_id()] then card_tally[playing_card:get_id()] = card_tally[playing_card:get_id()] + 1 end
-            end
-            total_mult = card.ability.extra.mult * (
-            math.max(card_tally[4] - deck_values[4], 0) +
-            math.max(card_tally[7] - deck_values[7], 0) +
-            math.max(card_tally[2] - deck_values[2], 0))
-        end
-        
-        return { vars = { card.ability.extra.mult, total_mult } }
+        return { vars = { card.ability.extra.mult, get_koopa_value() } }
     end,
 
     calculate = function(self, card, context)
         if context.joker_main then
-            local card_tally = 0
-            if G.playing_cards then
-                for _, playing_card in ipairs(G.playing_cards) do
-                    if playing_card:get_id() == 4 or playing_card:get_id() == 7 or playing_card:get_id() == 2 then card_tally = card_tally + 1 end
-                end
-            end
-            return { mult = card.ability.extra.mult * math.max(card_tally - 12, 0) }
+            return { mult = get_koopa_value() }
         end
     end,
 }
+
+local function get_koopa_value()
+    local card_tally = {nil, 0, nil, 0, nil, nil, 0}
+    local total_mult = 0
+    local deck_values = G.GAME.current_round.twow_koopa_values or {nil, 0, nil, 0, nil, nil, 0}
+    if G.playing_cards then
+        for _, playing_card in ipairs(G.playing_cards) do
+            if card_tally[playing_card:get_id()] then card_tally[playing_card:get_id()] = card_tally[playing_card:get_id()] + 1 end
+        end
+        total_mult = card.ability.extra.mult * (
+        math.max(card_tally[4] - deck_values[4], 0) +
+        math.max(card_tally[7] - deck_values[7], 0) +
+        math.max(card_tally[2] - deck_values[2], 0))
+    end 
+    return total_mult
+end
 
 local function get_twow_koopa_initial_ranks()
     G.GAME.current_round.twow_koopa_values = {nil, 0, nil, 0, nil, nil, 0}
@@ -2330,7 +2320,7 @@ SMODS.Joker {
         name="Speediness Potion",
         text={
             "{C:attention}X#1#{} Game Speed",
-            "{C:dark_edition}+1{} Joker Slot",
+            "Fills {C:dark_edition}0{} Joker Slots",
             },
     },
 
@@ -2653,24 +2643,27 @@ SMODS.Joker {
 
     config = { extra = { }, stolen = nil },
 
-    calculate = function(self, card, context)
+    set_ability = function(self, card, initial, delay_sprites)
 
-        if card.ability ~= nil and card.ability.stolen == nil then
+        if not initial then return end
+        card.ability.stolen = true
 
-            card.ability.stolen = true
-
-            local modjokers = {}
-            for k, v in pairs(G.P_CENTER_POOLS.Joker) do
-                if v.mod and v.mod.id == "TheLibrary" and v.rarity ~= 4 then
-                    table.insert(modjokers, v)
-                end
+        local modjokers = {}
+        for k, v in pairs(G.P_CENTER_POOLS.Joker) do
+            if v.mod and v.mod.id == "TheLibrary" and v.rarity ~= 4 and v.key ~= G.P_CENTERS.j_twow_mysterious_alt_figure then
+                table.insert(modjokers, v)
             end
-            local joker = pseudorandom_element(modjokers, pseudoseed("twow_maf"))
-            card.ability.stolen = joker.key
-            card.ability.extra = joker.config.extra
-            card.ability.immutable = joker.config.immutable
         end
+        local joker = pseudorandom_element(modjokers, pseudoseed("twow_maf"))
 
+        card.ability.stolen = joker.key
+        card.ability.extra = copy_table(joker.config.extra)
+        card.ability.extra_slots_used = joker.config.extra_slots_used or 0
+        card.ability.immutable = copy_table(joker.config.immutable)
+
+    end,
+
+    calculate = function(self, card, context)
         if card.ability.stolen ~= nil then
             local success, result = pcall(function()
                 return G.P_CENTERS[card.ability.stolen].calculate(self, card, context)
@@ -2678,7 +2671,6 @@ SMODS.Joker {
             if success then return result end
         end
     end,
-
     add_to_deck = function(self, card, from_debuff)
         if card.ability.stolen ~= nil then
             local success, result = pcall(function()
@@ -2986,8 +2978,6 @@ create_booster = function(key, weight, name, options, choices, x, y, cost)
         end,
     }
 end
-
-
 
 create_booster('index_normal_1', 0.3, "Catalog Pack", 2, 1, 0, 0, 6)
 create_booster('index_normal_2', 0.3, "Catalog Pack", 2, 1, 1, 0, 6)
@@ -3630,6 +3620,54 @@ SMODS.Sticker {
 	draw = global_bookmark_draw,
 }
 
+SMODS.Sticker {
+    key = "uncheckable",
+    badge_colour = HEX('4C9B61'),
+    atlas = 'twow_jokers',
+    pos = { x = 9, y = 3 },
+    default_compat = true,
+    rate = 0,
+
+    loc_txt = {
+        name="Uncheckable",
+        label = "Uncheckable",
+        text={
+            "Debuffed after being",
+            "checked {C:attention}#1#{} times",
+            "{C:inactive}(Currently #2#/#1#)",
+        },
+    },
+
+    config = { check_count = -1, check_max = 5 },
+
+    loc_vars = function(self, info_queue, card)
+
+        if card.ability.twow_uncheckable.check_count < card.ability.twow_uncheckable.check_max + 1 then
+            card.ability.twow_uncheckable.check_count = card.ability.twow_uncheckable.check_count + 1
+        end
+
+        if card.ability.twow_uncheckable.check_count == 5 then
+             G.E_MANAGER:add_event(Event({trigger = 'before', delay = 0.4, func = function()
+
+            attention_text({
+                text = "Debuffed!", scale = 0.9, hold = 1.4,
+                backdrop_colour = HEX('4C9B61'),
+                align = 'bm', major = card, yoffset = {x = 0, y = -0.8},
+                silent = true
+                })
+
+            card:set_debuff(true)
+
+            return true end }))           
+        end
+
+        return { vars = { card.ability.twow_uncheckable.check_max, math.min(card.ability.twow_uncheckable.check_max, card.ability.twow_uncheckable.check_count) } }
+    end,
+    
+    should_apply = function(self, card, center, area, bypass_roll)
+        return card.ability.set == "Joker" and G.GAME.modifiers.twow_all_uncheckable
+    end,
+}
 
 -- Index Tag
 SMODS.Tag {
@@ -3670,6 +3708,73 @@ SMODS.Tag {
         end
     end
 }
+
+SMODS.Challenge {
+    key = 'twow_invisible_rules',
+    loc_txt = {
+        name = 'Invisible Rules'
+    },
+    rules = {
+        custom = {
+            {id = 'twow_maf_only'},
+        }
+    }
+}
+G.localization.misc.v_text['ch_c_twow_maf_only'] = {"All {C:attention}Jokers{} are {C:attention}Mysterious Alt Figure{}"}
+
+local ref_get_pool = get_current_pool
+function get_current_pool(_type, _rarity, _legendary, _append, ...)
+    local pool, pool_key = ref_get_pool(_type, _rarity, _legendary, _append, ...)
+
+    if _type == "Joker" and G.GAME.modifiers.twow_maf_only then
+        pool = {'j_twow_mysterious_alt_figure'}
+    end
+
+    return pool, pool_key
+end
+
+
+SMODS.Challenge {
+    key = 'twow_ten_cards_of_wisdom',
+    loc_txt = {
+        name = 'Ten Cards Of Wisdom'
+    },
+    jokers = {
+        { id = 'j_twow_trojan', eternal = true },
+    },
+    deck = {
+        type = 'Challenge Deck',
+        cards = {
+            { s = 'S', r = 'T' },
+            { s = 'S', r = 'T' },
+            { s = 'S', r = 'T' },
+            { s = 'H', r = 'T' },
+            { s = 'H', r = 'T' },
+            { s = 'H', r = 'T' },
+            { s = 'C', r = 'T' },
+            { s = 'C', r = 'T' },
+            { s = 'D', r = 'T' },
+            { s = 'D', r = 'T' },
+        }
+    },
+    vouchers = {
+        { id = 'v_magic_trick' },
+    }
+}
+
+SMODS.Challenge {
+    key = 'twow_dont_check_humany',
+    loc_txt = {
+        name = 'Don\'t Check Humany'
+    },
+    rules = {
+        custom = {
+            {id = 'twow_all_uncheckable'},
+        }
+    }
+}
+G.localization.misc.v_text['ch_c_twow_all_uncheckable'] = {"{C:attention}Jokers{} are debuffed after being checked {C:attention}5{} times"}
+
 
 --[[ Testing Tag
 SMODS.Tag {
