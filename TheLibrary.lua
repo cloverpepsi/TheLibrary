@@ -1007,6 +1007,21 @@ SMODS.Joker{
     end
 }
 
+local function get_koopa_value(card)
+    local card_tally = {nil, 0, nil, 0, nil, nil, 0}
+    local total_mult = 0
+    local deck_values = G.GAME.current_round.twow_koopa_values or {nil, 0, nil, 0, nil, nil, 0}
+    if G.playing_cards then
+        for _, playing_card in ipairs(G.playing_cards) do
+            if card_tally[playing_card:get_id()] then card_tally[playing_card:get_id()] = card_tally[playing_card:get_id()] + 1 end
+        end
+        total_mult = card.ability.extra.mult * (
+        math.max(card_tally[4] - deck_values[4], 0) +
+        math.max(card_tally[7] - deck_values[7], 0) +
+        math.max(card_tally[2] - deck_values[2], 0))
+    end 
+    return total_mult
+end
 
 -- KOOPA
 SMODS.Joker {
@@ -1030,31 +1045,15 @@ SMODS.Joker {
     },
     config = { extra = { mult = 6 } },
     loc_vars = function(self, info_queue, card)
-        return { vars = { card.ability.extra.mult, get_koopa_value() } }
+        return { vars = { card.ability.extra.mult, get_koopa_value(card) } }
     end,
 
     calculate = function(self, card, context)
         if context.joker_main then
-            return { mult = get_koopa_value() }
+            return { mult = get_koopa_value(card) }
         end
     end,
 }
-
-local function get_koopa_value()
-    local card_tally = {nil, 0, nil, 0, nil, nil, 0}
-    local total_mult = 0
-    local deck_values = G.GAME.current_round.twow_koopa_values or {nil, 0, nil, 0, nil, nil, 0}
-    if G.playing_cards then
-        for _, playing_card in ipairs(G.playing_cards) do
-            if card_tally[playing_card:get_id()] then card_tally[playing_card:get_id()] = card_tally[playing_card:get_id()] + 1 end
-        end
-        total_mult = card.ability.extra.mult * (
-        math.max(card_tally[4] - deck_values[4], 0) +
-        math.max(card_tally[7] - deck_values[7], 0) +
-        math.max(card_tally[2] - deck_values[2], 0))
-    end 
-    return total_mult
-end
 
 local function get_twow_koopa_initial_ranks()
     G.GAME.current_round.twow_koopa_values = {nil, 0, nil, 0, nil, nil, 0}
